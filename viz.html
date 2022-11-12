@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<html>
+    <head>
+        <script src="http://d3js.org/d3.v6.js"></script>
+    </head>
+
+    <body>
+        <div id="container">
+            <div id="viz">
+            </div>
+        </div>
+    
+    <script>
+
+        var totalWidth = 200;
+        var totalHeight = 200;
+        function drawViz(data){
+            const controlPoints = data['control_points']
+            const gridPoints = data['results']
+
+            const pointColor = "#480CA8",
+                polygonColor = "#F72585",
+                polygonLineColor = "#FFD000";
+            const w = 800,
+                h = 800;
+            const radius = 1.3;
+            const numRows = totalWidth,
+                 numCols = totalHeight;
+      
+            const margin = {top: 10, bottom: 10, left: 10, right: 10},
+            width = w - margin.left - margin.right,
+            height = w - margin.top - margin.bottom,
+            svgBackgroundColor = "#000",
+            svg = d3.select("#viz")
+                .append("svg")
+                .attr("width", w)
+                .attr("height", h)
+                .style("background-color", svgBackgroundColor),
+            y = d3.scaleBand()
+                .range([radius,height-radius])
+                .domain(d3.range(numCols)),
+            x = d3.scaleBand()
+                .range([radius, width-radius])
+                .domain(d3.range(numCols));
+
+            const container = svg.append("g")
+                .attr("transform", `translate(${2*radius + margin.left},${2*radius + margin.top })`);
+
+            const polygonLinePath = d3.line()
+                .x(d => x(d[0]))
+                .y(d => y(d[1]))
+
+            function update(pointData, polygonPoints){
+                container.selectAll(".points")
+                    .data(pointData, d => d.id)
+                    .join(
+                        enter => enter.append("circle")
+                                .classed("points", true)
+                                .attr("fill", pointColor),
+                        update => update.attr("fill", polygonColor),
+                        exit => exit.attr("fill", pointColor)
+                    )
+                    .attr("id", d => `id${d.id}`)
+                    .attr("cx", d => x(d.pt[0]))
+                    .attr("cy", d => y(d.pt[1]))
+                    .attr("r", radius)
+                
+                container.selectAll(".polygonPath")
+                    .data(polygonPoints, d => d)
+                    .join(
+                        enter => enter.append("path")
+                                .classed("polygonPath", true)
+                                .attr("fill", "none")
+                                .attr("stroke", polygonLineColor)
+                                .attr("stroke-width", 5)
+                                .style("opacity", 0.5)
+                                .attr("d", d => polygonLinePath(d)),
+                        // update => update,
+                        // exit => exit.remove()   
+                    )
+            }
+            //update function calls API endpoint to get points within a random polygon
+            //does not pass a polygon here...generates a random polygon on the backend
+            update(gridPoints, controlPoints);
+                d3.interval(function(){
+                    fetch('http://127.0.0.1:5000/get_polygon_points')
+                        .then(result => result.json())
+                        .then(d => update(d['results'], d['control_points']))
+                    }, 1000)
+        }
+        d3.json(`http://127.0.0.1:5000/get_points?width=${totalWidth}&height=${totalHeight}`)
+            .then(data => drawViz(data))
+    </script>
+    </body>
+</html>
